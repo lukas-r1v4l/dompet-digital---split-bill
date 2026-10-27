@@ -65,6 +65,6 @@ Berikut daftar target fitur UTS beserta status pengerjaannya:
 3. **Langkah 3: Grup Split Bill & Perhitungan Utang (Fitur 7, 8, 9, 10)** ⏳ *Belum Mulai*
    - Membuat model `Group` dan penambahan anggota.
    - Menghitung pembagian rata pengeluaran bersama (*equal split*).
-   - Menghitung dan menampilkan siapa berutang ke siapa & berapa nominalnya.
+   - Menghitung dan menampilkan siapa berutang ke siapa dan berapa nominalnya.
 4. **Langkah 4: Antarmuka Interaktif CLI Final (`main.py`)** ⏳ *Belum Mulai*
    - Menghubungkan seluruh fitur lengkap (Fitur 1 s.d. 10) ke menu terminal interaktif yang komprehensif.
