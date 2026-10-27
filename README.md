@@ -50,3 +50,21 @@ Berikut daftar target fitur UTS beserta status pengerjaannya:
 | 8 | **Input pengeluaran bersama ke grup** | Association, Object Interaction | ⏳ Belum Mulai (Langkah 3) |
 | 9 | **Split tagihan rata antar anggota** | Algoritma Pembagian Rata (Equal Split) | ⏳ Belum Mulai (Langkah 3) |
 | 10 | **Tampilkan siapa berutang ke siapa & berapa** (CLI) | CLI Output Formatting | ⏳ Belum Mulai (Langkah 3) |
+
+---
+
+## 👣 Rencana Pengerjaan Bertahap (Step-by-Step)
+
+1. **Langkah 1: Fondasi Exception & Model Inti (Fitur 1, 4, 6)** ✅ *Selesai*
+   - Membuat custom exception `InsufficientFundsException` & `TransferLimitException`.
+   - Membuat model dasar `Wallet` (saldo awal 0), `User`, dan pencatatan `Transaction`.
+2. **Langkah 2: Top-Up Polymorphic & Layanan Transfer/Tagihan (Fitur 2, 3, 5)** ⏳ *Berikutnya*
+   - Membuat ABC `PaymentMethod` dan implementasinya (Polymorphism).
+   - Menambahkan fungsionalitas transfer antar user dengan validasi limit harian.
+   - Menambahkan fungsionalitas bayar tagihan (listrik, air, internet).
+3. **Langkah 3: Grup Split Bill & Perhitungan Utang (Fitur 7, 8, 9, 10)** ⏳ *Belum Mulai*
+   - Membuat model `Group` dan penambahan anggota.
+   - Menghitung pembagian rata pengeluaran bersama (*equal split*).
+   - Menghitung dan menampilkan siapa berutang ke siapa & berapa nominalnya.
+4. **Langkah 4: Antarmuka Interaktif CLI Final (`main.py`)** ⏳ *Belum Mulai*
+   - Menghubungkan seluruh fitur lengkap (Fitur 1 s.d. 10) ke menu terminal interaktif yang komprehensif.
