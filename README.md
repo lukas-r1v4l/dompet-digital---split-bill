@@ -41,10 +41,10 @@ Berikut daftar target fitur UTS beserta status pengerjaannya:
 | No | Fitur UTS | Konsep OOP Terkait | Status |
 |:--:|:---|:---|:---:|
 | 1 | **Registrasi pengguna & inisialisasi Wallet** (saldo awal 0) | Encapsulation, Constructor (`__init__`) | ✅ Selesai (Langkah 1) |
-| 2 | **Top-up saldo via metode pembayaran** | Inheritance / ABC, Polymorphism | ⏳ Belum Mulai (Langkah 2) |
-| 3 | **Transfer ke pengguna lain + cek limit harian** | Encapsulation, State Tracking | ⏳ Belum Mulai (Langkah 2) |
+| 2 | **Top-up saldo via metode pembayaran** | Inheritance / ABC, Polymorphism | ✅ Selesai (Langkah 2) |
+| 3 | **Transfer ke pengguna lain + cek limit harian** | Encapsulation, State Tracking | ✅ Selesai (Langkah 2) |
 | 4 | **Raise `TransferLimitException` & `InsufficientFundsException`** | Custom Exception Handling | ✅ Selesai (Langkah 1) |
-| 5 | **Bayar tagihan** (listrik, air, internet) | Polymorphism / Enumeration | ⏳ Belum Mulai (Langkah 2) |
+| 5 | **Bayar tagihan** (listrik, air, internet) | Polymorphism / Enumeration | ✅ Selesai (Langkah 2) |
 | 6 | **Catat setiap transaksi ke riwayat** | Composition, Association | ✅ Selesai (Langkah 1) |
 | 7 | **Buat grup split bill & tambah anggota** | Aggregation, List Management | ⏳ Belum Mulai (Langkah 3) |
 | 8 | **Input pengeluaran bersama ke grup** | Association, Object Interaction | ⏳ Belum Mulai (Langkah 3) |
