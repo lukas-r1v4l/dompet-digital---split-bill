@@ -671,3 +671,359 @@ class BillPaymentService:
         )
         bill.mark_as_paid()
         return trx
+
+class GroupExpense:
+    def __init__(
+        self,
+        title: str,
+        amount: float,
+        paid_by: User,
+        participants: List[User],
+        shares: Dict[str, float] = None,
+        expense_id: str = None
+    ):
+        if not title or not title.strip():
+            raise ValueError("Judul pengeluaran bersama tidak boleh kosong.")
+        if float(amount) <= 0:
+            raise ValueError("Nominal pengeluaran bersama harus lebih besar dari 0.")
+        if not participants:
+            raise ValueError("Peserta pengeluaran bersama tidak boleh kosong.")
+
+        self.__expense_id = expense_id or f"EXP-{uuid.uuid4().hex[:6].upper()}"
+        self.__title = title.strip()
+        self.__amount = float(amount)
+        self.__paid_by = paid_by
+        self.__participants = list(participants)
+        # Dictionary {user_id: nominal_bagian_masing_masing}
+        self.__shares: Dict[str, float] = dict(shares) if shares else {}
+        self.__timestamp = datetime.now()
+
+    @property
+    def expense_id(self) -> str:
+        return self.__expense_id
+
+    @property
+    def title(self) -> str:
+        return self.__title
+
+    @property
+    def amount(self) -> float:
+        return self.__amount
+
+    @property
+    def paid_by(self) -> User:
+        return self.__paid_by
+
+    @property
+    def participants(self) -> List[User]:
+        return list(self.__participants)
+
+    @property
+    def shares(self) -> Dict[str, float]:
+        return dict(self.__shares)
+
+    @property
+    def timestamp(self) -> datetime:
+        return self.__timestamp
+
+    def set_shares(self, shares: Dict[str, float]) -> None:
+        self.__shares = dict(shares)
+
+    def to_dict(self) -> dict:
+        return {
+            "expense_id": self.__expense_id,
+            "title": self.__title,
+            "amount": self.__amount,
+            "paid_by": self.__paid_by.user_id,
+            "paid_by_name": self.__paid_by.name,
+            "participants": [u.user_id for u in self.__participants],
+            "shares": dict(self.__shares),
+            "timestamp": self.__timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+    def __str__(self) -> str:
+        waktu = self.__timestamp.strftime("%d/%m/%Y %H:%M")
+        per_orang = self.__amount / len(self.__participants) if self.__participants else 0.0
+        return (
+            f"[{waktu}] {self.__expense_id} | {self.__title} | "
+            f"Total: Rp {self.__amount:,.2f} (Ditalangi oleh: {self.__paid_by.name}) | "
+            f"Split Rata ({len(self.__participants)} anggota): Rp {per_orang:,.2f}/orang"
+        )
+
+
+class ExpenseIterator:
+    def __init__(self, expenses: List[GroupExpense]):
+        self._expenses = list(expenses)
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> GroupExpense:
+        if self._index >= len(self._expenses):
+            raise StopIteration
+        item = self._expenses[self._index]
+        self._index += 1
+        return item
+
+
+class BaseGroup(ABC):
+    def __init__(self, group_id: str, name: str, creator: User = None):
+        if not name or not name.strip():
+            raise ValueError("Nama grup tidak boleh kosong.")
+
+        self._group_id = group_id.strip().upper()
+        self._name = name.strip()
+        # Menggunakan List untuk pengurutan anggota dan set untuk cek keunikan ID 
+        self._members: List[User] = []
+        self._member_ids: set = set()
+        self._expenses: List[GroupExpense] = []
+        # Dictionary bersarang {id_pengutang: {id_pemberi_pinjaman: nominal}}
+        self._debt_matrix: Dict[str, Dict[str, float]] = {}
+
+        if creator is not None:
+            self.add_member(creator)
+
+    @property
+    def group_id(self) -> str:
+        return self._group_id
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def members(self) -> List[User]:
+        return list(self._members)
+
+    @property
+    def expenses(self) -> List[GroupExpense]:
+        return list(self._expenses)
+
+    # Memungkinkan objek grup diiterasi langsung dengan "for exp in group:"
+    def __iter__(self):
+        return ExpenseIterator(self._expenses)
+
+    # Generator function dengan keyword "yield" untuk mengambil pengeluaran
+    def iter_expenses(self):
+        for exp in self._expenses:
+            yield exp
+
+    # Fitur 7 - Menambahkan anggota ke dalam grup
+    def add_member(self, user: User) -> None:
+        if not isinstance(user, User):
+            raise TypeError("Anggota yang ditambahkan harus berupa objek User.")
+        if user.user_id in self._member_ids:
+            raise ValueError(f"{user.name} ({user.user_id}) sudah menjadi anggota grup '{self._name}'.")
+
+        self._members.append(user)
+        self._member_ids.add(user.user_id)
+        self._debt_matrix[user.user_id] = {}
+
+    def has_member(self, user_id: str) -> bool:
+        return (user_id or "").strip().upper() in self._member_ids
+
+    def get_member(self, user_id: str) -> User:
+        dicari = (user_id or "").strip().upper()
+        for member in self._members:
+            if member.user_id.upper() == dicari:
+                return member
+        raise ValueError(f"Pengguna '{user_id}' bukan anggota grup '{self._name}'.")
+
+    @abstractmethod
+    def calculate_split(
+        self,
+        total_amount: float,
+        participants: List[User] = None
+    ) -> Dict[str, float]:
+        pass
+
+    def _record_debt(self, debtor_id: str, creditor_id: str, amount: float) -> None:
+        if debtor_id == creditor_id or amount <= 0:
+            return
+
+        hutang_sebaliknya = self._debt_matrix.get(creditor_id, {}).get(debtor_id, 0.0)
+
+        if hutang_sebaliknya > 0:
+            if hutang_sebaliknya > amount:
+                self._debt_matrix[creditor_id][debtor_id] = hutang_sebaliknya - amount
+                return
+            elif hutang_sebaliknya < amount:
+                sisa = amount - hutang_sebaliknya
+                self._debt_matrix[creditor_id][debtor_id] = 0.0
+                self._debt_matrix.setdefault(debtor_id, {})
+                self._debt_matrix[debtor_id][creditor_id] = (
+                    self._debt_matrix[debtor_id].get(creditor_id, 0.0) + sisa
+                )
+                return
+            else:
+                self._debt_matrix[creditor_id][debtor_id] = 0.0
+                return
+
+        self._debt_matrix.setdefault(debtor_id, {})
+        self._debt_matrix[debtor_id][creditor_id] = (
+            self._debt_matrix[debtor_id].get(creditor_id, 0.0) + amount
+        )
+
+    # Fitur 8 dan 9 - Input pengeluaran bersama ke grup & otomatis hitung split rata
+    def add_expense(
+        self,
+        payer: User,
+        amount: float,
+        title: str,
+        participants: List[User] = None
+    ) -> GroupExpense:
+        if len(self._members) < 2:
+            raise ValueError("Grup harus memiliki minimal 2 anggota sebelum mencatat pengeluaran.")
+        if not self.has_member(payer.user_id):
+            raise ValueError(f"Pembayar ({payer.name}) harus terdaftar sebagai anggota grup '{self._name}'.")
+        if float(amount) <= 0:
+            raise ValueError("Nominal pengeluaran harus lebih besar dari 0.")
+
+        peserta = list(participants) if participants else list(self._members)
+        for p in peserta:
+            if not self.has_member(p.user_id):
+                raise ValueError(f"Peserta ({p.name}) bukan anggota grup '{self._name}'.")
+
+        # Mengitung pembagian tagihan secara polimorfik >> Fitur 9
+        pembagian = self.calculate_split(float(amount), peserta)
+
+        expense = GroupExpense(
+            title=title,
+            amount=float(amount),
+            paid_by=payer,
+            participants=peserta,
+            shares=pembagian
+        )
+        self._expenses.append(expense)
+
+        # Memperbarui posisi utang setiap anggota terhadap payer >> penalang dana
+        for user_id, bagian in pembagian.items():
+            if user_id != payer.user_id and bagian > 0:
+                self._record_debt(debtor_id=user_id, creditor_id=payer.user_id, amount=bagian)
+
+        return expense
+
+    # Fitur 10 - Mengambil daftar siapa berutang ke siapa & berapa nominalnya
+    def get_debt_relations(self) -> List[dict]:
+        # Dictionary comprehension untuk memetakan user_id -> objek User
+        peta_member = {m.user_id: m for m in self._members}
+        daftar_utang = []
+
+        for debtor_id, creditors in self._debt_matrix.items():
+            for creditor_id, nominal in creditors.items():
+                if nominal > 0.009:  # Mengabaikan selisih pembulatan di bawah 1 sen
+                    daftar_utang.append({
+                        "from_user": peta_member[debtor_id],
+                        "to_user": peta_member[creditor_id],
+                        "amount": round(nominal, 2)
+                    })
+        return daftar_utang
+
+    # Fitur 10 - Menyusun teks ringkasan siapa berutang ke siapa & berapa nominalnya
+    def format_debt_summary_cli(self) -> str:
+        relasi_utang = self.get_debt_relations()
+        if not relasi_utang:
+            return "Tidak ada utang antar anggota di grup ini (Semua impas / lunas)."
+
+        # Membuat list comprehension untuk menyusun baris teks CLI
+        baris = [
+            f"  {idx}. {item['from_user'].name} ({item['from_user'].user_id}) "
+            f"berutang ke {item['to_user'].name} ({item['to_user'].user_id}) "
+            f"sebesar Rp {item['amount']:,.2f}"
+            for idx, item in enumerate(relasi_utang, start=1)
+        ]
+        return "\n".join(baris)
+
+    # Fitur 10 - Menampilkan langsung siapa berutang ke siapa & berapa ke layar CLI
+    def show_debt_summary(self) -> None:
+        print(f"=== Ringkasan Utang Grup: {self._name} ({self._group_id}) ===")
+        print(self.format_debt_summary_cli())
+
+    def get_total_expenses(self) -> float:
+        # Generator expression di dalam sum()
+        return sum(exp.amount for exp in self._expenses)
+
+    def __str__(self) -> str:
+        nama_anggota = ", ".join([m.name for m in self._members]) or "Belum ada anggota"
+        return (
+            f"[{self._group_id}] {self._name} | "
+            f"Anggota ({len(self._members)}): {nama_anggota} | "
+            f"Total Pengeluaran: Rp {self.get_total_expenses():,.2f}"
+        )
+
+
+class Group(BaseGroup):
+    def __init__(self, group_id: str, name: str, creator: User = None):
+        # Memanggil constructor kelas induk (Materi P02 super().__init__)
+        super().__init__(group_id, name, creator)
+
+    # Override method abstrak calculate_split untuk pembagian rata (Fitur 9 - Polymorphism)
+    def calculate_split(
+        self,
+        total_amount: float,
+        participants: List[User] = None
+    ) -> Dict[str, float]:
+        peserta = list(participants) if participants else list(self._members)
+        if not peserta:
+            raise ValueError("Tidak ada anggota di dalam grup untuk membagi tagihan.")
+
+        bagian_rata = round(float(total_amount) / len(peserta), 2)
+        # Dictionary comprehension untuk membagi rata ke setiap peserta (Materi P06)
+        return {u.user_id: bagian_rata for u in peserta}
+
+
+# Berfungsi sebagai alias agar dapat kompatibel jika dipanggil sebagai EqualSplitGroup maupun Group
+EqualSplitGroup = Group
+
+
+class SplitBillService:
+    def __init__(self, users: Dict[str, User]):
+        self._users = users
+        self._groups: Dict[str, Group] = {}
+
+    @property
+    def groups(self) -> List[Group]:
+        return list(self._groups.values())
+
+    def create_group(self, name: str, creator: User = None, initial_members: List[User] = None) -> Group:
+        group_id = f"GRP-{len(self._groups) + 1:02d}"
+        grup_baru = Group(group_id=group_id, name=name, creator=creator)
+
+        if initial_members:
+            for member in initial_members:
+                if not grup_baru.has_member(member.user_id):
+                    grup_baru.add_member(member)
+
+        self._groups[group_id] = grup_baru
+        return grup_baru
+
+    def find_group(self, group_id: str) -> Group:
+        dicari = (group_id or "").strip().upper()
+        if dicari not in self._groups:
+            raise ValueError(f"Grup dengan ID '{group_id}' tidak ditemukan.")
+        return self._groups[dicari]
+
+    def add_member_to_group(self, group_id: str, user_id: str) -> Group:
+        grup = self.find_group(group_id)
+        uid = (user_id or "").strip().upper()
+        if uid not in self._users:
+            raise ValueError(f"Pengguna dengan ID '{user_id}' tidak terdaftar di sistem.")
+
+        grup.add_member(self._users[uid])
+        return grup
+
+    def add_group_expense(
+        self,
+        group_id: str,
+        payer_id: str,
+        amount: float,
+        title: str
+    ) -> GroupExpense:
+        grup = self.find_group(group_id)
+        pembayar = grup.get_member(payer_id)
+        return grup.add_expense(payer=pembayar, amount=amount, title=title)
+
+    def get_group_debt_summary(self, group_id: str) -> str:
+        grup = self.find_group(group_id)
+        return grup.format_debt_summary_cli()
