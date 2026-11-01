@@ -50,9 +50,9 @@ def main():
         print("-" * 45)
         print("1. Registrasi Pengguna Baru") # fitur 1
         print("2. Ganti Pengguna Aktif")
-        print("3. Top-Up via Metode Pembayaran (Polymorphism)")
-        print("4. Transfer Antar User (Limit Harian)")
-        print("5. Bayar Tagihan Listrik/Air/Internet")
+        print("3. Top-Up via Metode Pembayaran")
+        print("4. Transfer Antar User")
+        print("5. Bayar Tagihan")
         print("6. Tarik Tunai / Pengeluaran")
         print("7. Lihat Riwayat Transaksi") # fitur 6
         print("0. Keluar")
