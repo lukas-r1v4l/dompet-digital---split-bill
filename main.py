@@ -43,7 +43,7 @@ def main():
     bill_service = BillPaymentService()
 
     while True:
-        print_header("Aplikasi Dompet Digital (Fintech CLI)")
+        print_header("Aplikasi Dompet Digital")
         print(f"Pengguna Aktif: {active_user.name} ({active_user.user_id})")
         print(f"Saldo Saat Ini : Rp {active_user.wallet.get_balance():,.2f}")
         print(f"Sisa Limit Harian: Rp {active_user.wallet.get_remaining_daily_limit():,.2f}")
