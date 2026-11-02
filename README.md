@@ -59,7 +59,7 @@ Berikut daftar target fitur UTS beserta status pengerjaannya:
 1. **Langkah 1: Fondasi Exception & Model Inti (Fitur 1, 4, 6)** ✅ _Selesai_
    - Membuat custom exception `InsufficientFundsException` & `TransferLimitException`.
    - Membuat model dasar `Wallet` (saldo awal 0), `User`, dan pencatatan `Transaction`.
-2. **Langkah 2: Top-Up Polymorphic & Layanan Transfer/Tagihan (Fitur 2, 3, 5)** ⏳ _Berikutnya_
+2. **Langkah 2: Top-Up Polymorphic & Layanan Transfer/Tagihan (Fitur 2, 3, 5)** ⏳ _Belum Selesai_
    - Membuat ABC `PaymentMethod` dan implementasinya (Polymorphism).
    - Menambahkan fungsionalitas transfer antar user dengan validasi limit harian.
    - Menambahkan fungsionalitas bayar tagihan (listrik, air, internet).
@@ -67,5 +67,5 @@ Berikut daftar target fitur UTS beserta status pengerjaannya:
    - Membuat model `Group` dan penambahan anggota.
    - Menghitung pembagian rata pengeluaran bersama (_equal split_).
    - Menghitung dan menampilkan siapa berutang ke siapa dan berapa nominalnya.
-4. **Langkah 4: Antarmuka Interaktif CLI Final (`main.py`)** ⏳ _Belum Mulai_
+4. **Langkah 4: Antarmuka Interaktif CLI Final (`main.py`)** ⏳ _Belum Selesai_
    - Menghubungkan seluruh fitur lengkap (Fitur 1 s.d. 10) ke menu terminal interaktif yang komprehensif.

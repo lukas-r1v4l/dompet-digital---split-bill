@@ -166,13 +166,20 @@ class Wallet:
 
 
 class User:
-    def __init__(self, user_id: str, name: str, phone_number: str, email: str = ""):
+    def __init__(self, user_id: str, name: str, phone_number: str, email: str = "", pin: str = "123456"):
         self.__user_id = user_id
         self.__name = name
         self.__phone_number = phone_number
         self.__email = email
-        # Setiap user baru otomatis dibuatkan wallet pribadi bersaldo 0 (Fitur 1)
+        self.__pin = self._validate_pin(pin)
         self.__wallet = Wallet(initial_balance=0.0)
+
+    @staticmethod
+    def _validate_pin(pin: str) -> str:
+        cleaned = str(pin).strip()
+        if len(cleaned) != 6 or not cleaned.isdigit():
+            raise ValueError("PIN harus berupa 6 digit angka.")
+        return cleaned
 
     @property
     def user_id(self) -> str:
@@ -182,7 +189,6 @@ class User:
     def name(self) -> str:
         return self.__name
 
-    # Setter untuk memvalidasi perubahan nama agar tidak kosong
     @name.setter
     def name(self, new_name: str) -> None:
         if not new_name.strip():
@@ -201,6 +207,15 @@ class User:
     def wallet(self) -> Wallet:
         return self.__wallet
 
+    def verify_pin(self, pin: str) -> bool:
+        return self.__pin == str(pin).strip()
+
+    def reset_pin_with_phone(self, phone_number: str, new_pin: str) -> bool:
+        if self.__phone_number.strip() != str(phone_number).strip():
+            raise ValueError("Nomor HP tidak cocok dengan nomor terdaftar.")
+        self.__pin = self._validate_pin(new_pin)
+        return True
+
     def to_dict(self) -> dict:
         return {
             "user_id": self.__user_id,
@@ -212,6 +227,102 @@ class User:
 
     def __str__(self) -> str:
         return f"User({self.__user_id} - {self.__name} | Saldo: Rp {self.__wallet.get_balance():,.2f})"
+
+
+class Admin:
+    def __init__(self, admin_id: str, name: str, phone_number: str, pin: str = "123456"):
+        self.__admin_id = admin_id.strip().upper()
+        self.__name = name.strip()
+        self.__phone_number = phone_number.strip()
+        self.__pin = self._validate_pin(pin)
+
+    @staticmethod
+    def _validate_pin(pin: str) -> str:
+        cleaned = str(pin).strip()
+        if len(cleaned) != 6 or not cleaned.isdigit():
+            raise ValueError("PIN harus berupa 6 digit angka.")
+        return cleaned
+
+    @property
+    def admin_id(self) -> str:
+        return self.__admin_id
+
+    @property
+    def name(self) -> str:
+        return self.__name
+
+    @property
+    def phone_number(self) -> str:
+        return self.__phone_number
+
+    def verify_pin(self, pin: str) -> bool:
+        return self.__pin == str(pin).strip()
+
+    def reset_pin_with_phone(self, phone_number: str, new_pin: str) -> bool:
+        if self.__phone_number.strip() != str(phone_number).strip():
+            raise ValueError("Nomor HP tidak cocok dengan nomor admin terdaftar.")
+        self.__pin = self._validate_pin(new_pin)
+        return True
+
+    def __str__(self) -> str:
+        return f"Admin({self.__admin_id} - {self.__name})"
+
+
+class Feedback:
+    def __init__(self, user: User, rating: int, comment: str, feedback_id: str = None):
+        if not (1 <= int(rating) <= 5):
+            raise ValueError("Rating harus bernilai antara 1 sampai 5.")
+        if not comment or not comment.strip():
+            raise ValueError("Komentar ulasan tidak boleh kosong.")
+
+        self.__feedback_id = feedback_id or f"FB-{uuid.uuid4().hex[:6].upper()}"
+        self.__user = user
+        self.__rating = int(rating)
+        self.__comment = comment.strip()
+        self.__timestamp = datetime.now()
+
+    @property
+    def feedback_id(self) -> str:
+        return self.__feedback_id
+
+    @property
+    def user(self) -> User:
+        return self.__user
+
+    @property
+    def rating(self) -> int:
+        return self.__rating
+
+    @property
+    def comment(self) -> str:
+        return self.__comment
+
+    @property
+    def timestamp(self) -> datetime:
+        return self.__timestamp
+
+    def __str__(self) -> str:
+        waktu = self.__timestamp.strftime("%d/%m/%Y %H:%M")
+        bintang = "★" * self.__rating + "☆" * (5 - self.__rating)
+        return f"[{waktu}] {self.__user.name} ({self.__user.user_id}) - {bintang} ({self.__rating}/5) | Ulasan: {self.__comment}" 
+
+
+class FeedbackService:
+    def __init__(self):
+        self.__feedbacks: List[Feedback] = []
+
+    def add_feedback(self, user: User, rating: int, comment: str) -> Feedback:
+        fb = Feedback(user, rating, comment)
+        self.__feedbacks.append(fb)
+        return fb
+
+    def get_all_feedback(self) -> List[Feedback]:
+        return list(self.__feedbacks)
+
+    def get_average_rating(self) -> float:
+        if not self.__feedbacks:
+            return 0.0
+        return sum(fb.rating for fb in self.__feedbacks) / len(self.__feedbacks)
 
 class PaymentMethod(ABC):
     """
@@ -583,11 +694,11 @@ class TransferService:
     """
 
     def __init__(self, users: Dict[str, User]):
-        self._users = dict(users)
+        self._users = users
 
     @property
     def users(self) -> Dict[str, User]:
-        return dict(self._users)
+        return self._users
 
     def find_user(self, user_id: str) -> User:
         dicari = (user_id or "").strip().upper()
