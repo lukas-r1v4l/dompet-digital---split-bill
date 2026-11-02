@@ -69,13 +69,13 @@ def main():
             email = input("Masukkan Email        : ").strip()
 
             if not nama or not no_hp:
-                print(">> [Error]: Nama dan Nomor HP wajib diisi!")
+                print("[Error]: Nama dan Nomor HP wajib diisi!")
                 continue
 
             baru = User(user_id, nama, no_hp, email)
             users[user_id] = baru
-            print(f">> Berhasil mendaftarkan {baru.name} dengan ID: {user_id}")
-            print(f">> Saldo awal wallet otomatis diinisialisasi: Rp {baru.wallet.get_balance():,.2f}")
+            print(f"Berhasil mendaftarkan {baru.name} dengan ID: {user_id}")
+            print(f"Saldo awal wallet otomatis diinisialisasi: Rp {baru.wallet.get_balance():,.2f}")
 
         elif pilihan == "2":
             # Beralih antar pengguna
@@ -87,9 +87,9 @@ def main():
             target_id = input("\nMasukkan User ID yang ingin dipilih: ").strip().upper()
             if target_id in users:
                 active_user = users[target_id]
-                print(f">> Pengguna aktif beralih ke: {active_user.name}")
+                print(f"Pengguna aktif beralih ke: {active_user.name}")
             else:
-                print(">> [Error]: User ID tidak ditemukan!")
+                print("[Error]: User ID tidak ditemukan!")
 
         elif pilihan == "6":
             # Tarik Tunai - menguji penangkapan InsufficientFundsException (Fitur 4)
@@ -97,12 +97,12 @@ def main():
             try:
                 nominal = float(input("Masukkan nominal penarikan: Rp "))
                 active_user.wallet.debit(nominal, description="Tarik Tunai", tx_type="WITHDRAW")
-                print(f">> Penarikan berhasil! Sisa saldo: Rp {active_user.wallet.get_balance():,.2f}")
+                print(f"Penarikan berhasil! Sisa saldo: Rp {active_user.wallet.get_balance():,.2f}")
             except InsufficientFundsException as e:
                 # Tangkap custom exception jika saldo tidak cukup
-                print(f">> [GAGAL - InsufficientFundsException]: {e}")
+                print(f"[GAGAL - InsufficientFundsException]: {e}")
             except ValueError as e:
-                print(f">> [Error]: Input tidak valid! ({e})")
+                print(f"[Error]: Input tidak valid! ({e})")
 
         elif pilihan == "7":
             # Fitur 6: Menampilkan riwayat transaksi
@@ -140,12 +140,12 @@ def main():
                 nominal = float(input(f"Masukkan nominal top-up ({metode_dipilih.name}): Rp "))
                 trx = metode_dipilih.top_up(active_user.wallet, nominal)
 
-                print(f">> Top-up BERHASIL via {metode_dipilih.name}!")
-                print(f">> Biaya admin : Rp {metode_dipilih.calculate_admin_fee(nominal):,.2f}")
-                print(f">> Saldo masuk : Rp {trx.amount:,.2f}")
-                print(f">> Saldo wallet sekarang: Rp {active_user.wallet.get_balance():,.2f}")
+                print(f"Top-up BERHASIL via {metode_dipilih.name}!")
+                print(f"Biaya admin : Rp {metode_dipilih.calculate_admin_fee(nominal):,.2f}")
+                print(f"Saldo masuk : Rp {trx.amount:,.2f}")
+                print(f"Saldo wallet sekarang: Rp {active_user.wallet.get_balance():,.2f}")
             except ValueError as e:
-                print(f">> [Error]: {e}")
+                print(f"[Error]: {e}")
 
         elif pilihan == "4":
             # Fitur 3: Transfer antar pengguna memakai TransferService
@@ -161,15 +161,15 @@ def main():
                 nominal = float(input(f"Masukkan nominal transfer ke {penerima.name}: Rp "))
                 trx = transfer_service.transfer(active_user, penerima, nominal)
 
-                print(f">> Transfer Rp {nominal:,.2f} ke {penerima.name} BERHASIL!")
-                print(f">> ID Transaksi: {trx.transaction_id}")
-                print(f">> Sisa limit harian Anda: Rp {active_user.wallet.get_remaining_daily_limit():,.2f}")
+                print(f"Transfer Rp {nominal:,.2f} ke {penerima.name} BERHASIL!")
+                print(f"ID Transaksi: {trx.transaction_id}")
+                print(f"Sisa limit harian Anda: Rp {active_user.wallet.get_remaining_daily_limit():,.2f}")
             except ValueError as e:
-                print(f">> [Error]: {e}")
+                print(f"[Error]: {e}")
             except TransferLimitException as e:
-                print(f">> [GAGAL - TransferLimitException]: {e}")
+                print(f"[GAGAL - TransferLimitException]: {e}")
             except InsufficientFundsException as e:
-                print(f">> [GAGAL - InsufficientFundsException]: {e}")
+                print(f"[GAGAL - InsufficientFundsException]: {e}")
 
         elif pilihan == "5":
             # Fitur 5: Bayar tagihan listrik, air, dan internet
@@ -197,23 +197,23 @@ def main():
 
                 konfirmasi = input("Lanjutkan pembayaran? (y/n): ").strip().lower()
                 if konfirmasi != "y":
-                    print(">> Pembayaran dibatalkan.")
+                    print("Pembayaran dibatalkan.")
                     continue
 
                 trx = bill_service.pay_bill(active_user, tagihan)
-                print(f">> Pembayaran {tipe.label} BERHASIL! (ID: {trx.transaction_id})")
-                print(f">> Sisa saldo: Rp {active_user.wallet.get_balance():,.2f}")
+                print(f"Pembayaran {tipe.label} BERHASIL! (ID: {trx.transaction_id})")
+                print(f"Sisa saldo: Rp {active_user.wallet.get_balance():,.2f}")
             except (ValueError, KeyError, IndexError) as e:
-                print(f">> [Error]: Input tidak valid atau jenis tagihan tidak dikenal! ({e})")
+                print(f"[Error]: Input tidak valid atau jenis tagihan tidak dikenal! ({e})")
             except InsufficientFundsException as e:
-                print(f">> [GAGAL - InsufficientFundsException]: {e}")
+                print(f"[GAGAL - InsufficientFundsException]: {e}")
 
         elif pilihan == "0":
             print("\nTerima kasih telah menggunakan aplikasi Dompet Digital!\n")
             break
 
         else:
-            print(">> Pilihan tidak valid, silakan coba lagi.")
+            print("Pilihan tidak valid, silakan coba lagi.")
 
 
 if __name__ == "__main__":
