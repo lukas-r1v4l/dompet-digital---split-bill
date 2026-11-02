@@ -170,16 +170,24 @@ class User:
         self.__user_id = user_id
         self.__name = name
         self.__phone_number = phone_number
-        self.__email = email
+        self.__email = self._validate_email(email)
         self.__pin = self._validate_pin(pin)
         self.__wallet = Wallet(initial_balance=0.0)
 
     @staticmethod
+    def _validate_email(email: str) -> str:
+        teks_email = email.strip() if email else ""
+        if teks_email:
+            if " " in teks_email or "@" not in teks_email or "." not in teks_email:
+                raise ValueError(f"Format email '{email}' tidak valid.")
+        return teks_email
+
+    @staticmethod
     def _validate_pin(pin: str) -> str:
-        cleaned = str(pin).strip()
-        if len(cleaned) != 6 or not cleaned.isdigit():
+        teks_pin = str(pin).strip()
+        if len(teks_pin) != 6 or not teks_pin.isdigit():
             raise ValueError("PIN harus berupa 6 digit angka.")
-        return cleaned
+        return teks_pin
 
     @property
     def user_id(self) -> str:
@@ -238,10 +246,10 @@ class Admin:
 
     @staticmethod
     def _validate_pin(pin: str) -> str:
-        cleaned = str(pin).strip()
-        if len(cleaned) != 6 or not cleaned.isdigit():
+        teks_pin = str(pin).strip()
+        if len(teks_pin) != 6 or not teks_pin.isdigit():
             raise ValueError("PIN harus berupa 6 digit angka.")
-        return cleaned
+        return teks_pin
 
     @property
     def admin_id(self) -> str:

@@ -3,7 +3,7 @@ Program Utama Antarmuka CLI Dompet Digital & Split Bill
 Gateway peran (Admin & Pengguna), sistem autentikasi PIN, serta audit pengguna dan ulasan.
 """
 
-from typing import Dict, Optional
+from typing import Dict
 from models import (
     User,
     Admin,
@@ -24,18 +24,56 @@ def print_header(title: str) -> None:
     print("=" * 48)
 
 
-def find_user_by_id_or_phone(users: Dict[str, User], identifier: str) -> Optional[User]:
-    target = (identifier or "").strip().upper()
+def validate_name(nama):
+    teks = nama.strip() if nama else ""
+    if len(teks) < 3:
+        raise ValueError("Nama lengkap minimal terdiri dari 3 karakter.")
+    if not teks.replace(" ", "").isalpha():
+        raise ValueError("Nama lengkap hanya boleh berisi huruf dan spasi.")
+    return teks
+
+
+def validate_phone(no_hp):
+    teks = no_hp.strip() if no_hp else ""
+    if not teks.isdigit():
+        raise ValueError("Nomor HP harus berupa angka.")
+    if len(teks) < 10 or len(teks) > 13:
+        raise ValueError("Nomor HP harus terdiri dari 10 sampai 13 digit.")
+    if not (teks.startswith("08") or teks.startswith("628")):
+        raise ValueError("Nomor HP harus diawali dengan '08' atau '628'.")
+    return teks
+
+
+def validate_email(email):
+    teks = email.strip() if email else ""
+    if not teks:
+        raise ValueError("Email tidak boleh kosong.")
+    if " " in teks or "@" not in teks or "." not in teks:
+        raise ValueError("Format email tidak valid (contoh yang benar: nama@domain.com).")
+
+    bagian = teks.split("@")
+    if len(bagian) != 2 or not bagian[0] or not bagian[1]:
+        raise ValueError("Format email tidak valid (contoh yang benar: nama@domain.com).")
+
+    domain = bagian[1]
+    if "." not in domain or domain.startswith(".") or domain.endswith("."):
+        raise ValueError("Format email tidak valid (contoh yang benar: nama@domain.com).")
+
+    return teks
+
+
+def find_user_by_id_or_phone(users, identifier):
+    target = identifier.strip() if identifier else ""
     for u in users.values():
-        if u.user_id.upper() == target or u.phone_number == target:
+        if u.name == target or u.user_id == target or u.phone_number == target:
             return u
     return None
 
 
-def find_admin_by_id_or_phone(admins: Dict[str, Admin], identifier: str) -> Optional[Admin]:
-    target = (identifier or "").strip().upper()
+def find_admin_by_id_or_phone(admins, identifier):
+    target = identifier.strip() if identifier else ""
     for a in admins.values():
-        if a.admin_id.upper() == target or a.phone_number == target:
+        if a.name == target or a.admin_id == target or a.phone_number == target:
             return a
     return None
 
@@ -51,7 +89,7 @@ def menu_pengguna_aktif(
 ) -> None:
     while True:
         print_header("Dashboard Pengguna Dompet Digital")
-        print(f"Pengguna Aktif   : {active_user.name} ({active_user.user_id})")
+        print(f"Pengguna Aktif   : {active_user.name}")
         print(f"Saldo Saat Ini   : Rp {active_user.wallet.get_balance():,.2f}")
         print(f"Sisa Limit Harian: Rp {active_user.wallet.get_remaining_daily_limit():,.2f}")
         print("-" * 48)
@@ -74,10 +112,14 @@ def menu_pengguna_aktif(
             print("Metode pembayaran yang tersedia:")
             for nomor, metode in enumerate(daftar_metode, start=1):
                 print(f"  {nomor}. {metode}")
+            print("  0. Kembali")
             print("-" * 48)
 
+            pilihan_metode = input("Pilih menu (0-4): ").strip()
+            if pilihan_metode == "0":
+                continue
+
             try:
-                pilihan_metode = input("Pilih metode (angka/ID): ").strip()
                 if pilihan_metode.isdigit():
                     indeks = int(pilihan_metode) - 1
                     if indeks < 0 or indeks >= len(daftar_metode):
@@ -89,7 +131,7 @@ def menu_pengguna_aktif(
                 nominal = float(input(f"Nominal top-up ({metode_dipilih.name}): Rp "))
                 trx = metode_dipilih.top_up(active_user.wallet, nominal)
 
-                print(f"Top-up BERHASIL via {metode_dipilih.name}!")
+                print(f"\nTop-up BERHASIL via {metode_dipilih.name}!")
                 print(f"Biaya admin : Rp {metode_dipilih.calculate_admin_fee(nominal):,.2f}")
                 print(f"Saldo masuk : Rp {trx.amount:,.2f}")
                 print(f"Saldo akhir : Rp {active_user.wallet.get_balance():,.2f}")
@@ -99,7 +141,9 @@ def menu_pengguna_aktif(
         elif pilihan == "2":
             # Fitur 3: Transfer antar pengguna
             print_header("Transfer Antar Pengguna")
-            tujuan_id = input("Masukkan User ID / No HP penerima: ").strip()
+            tujuan_id = input("Masukkan Nama / User ID / No HP penerima: ").strip()
+            if not tujuan_id:
+                continue
 
             try:
                 penerima = find_user_by_id_or_phone(users, tujuan_id)
@@ -111,7 +155,7 @@ def menu_pengguna_aktif(
                 nominal = float(input(f"Nominal transfer ke {penerima.name}: Rp "))
                 trx = transfer_service.transfer(active_user, penerima, nominal)
 
-                print(f"Transfer Rp {nominal:,.2f} ke {penerima.name} BERHASIL!")
+                print(f"\nTransfer Rp {nominal:,.2f} ke {penerima.name} BERHASIL!")
                 print(f"ID Transaksi: {trx.transaction_id}")
                 print(f"Sisa limit harian: Rp {active_user.wallet.get_remaining_daily_limit():,.2f}")
             except (ValueError, TransferLimitException, InsufficientFundsException) as e:
@@ -123,12 +167,19 @@ def menu_pengguna_aktif(
             print("Jenis tagihan:")
             for nomor, tipe in enumerate(bill_service.get_bill_types(), start=1):
                 print(f"  {nomor}. {tipe.label}")
+            print("  0. Kembali")
             print("-" * 48)
 
+            pilih_tipe = input("Pilih menu (0-3): ").strip()
+            if pilih_tipe == "0":
+                continue
+
             try:
-                pilih_tipe = input("Pilih jenis (angka/nama): ").strip()
                 if pilih_tipe.isdigit():
-                    tipe = bill_service.get_bill_types()[int(pilih_tipe) - 1]
+                    indeks = int(pilih_tipe) - 1
+                    if indeks < 0 or indeks >= len(bill_service.get_bill_types()):
+                        raise ValueError(f"Pilihan '{pilih_tipe}' tidak valid.")
+                    tipe = bill_service.get_bill_types()[indeks]
                 else:
                     tipe = BillType[pilih_tipe.upper()]
 
@@ -192,6 +243,11 @@ def menu_pengguna_aktif(
                 continue
 
             pin_baru = input("Masukkan PIN baru (6 digit angka): ").strip()
+            pin_confirm = input("Konfirmasi PIN baru: ").strip()
+            if pin_baru != pin_confirm:
+                print("[Error]: Konfirmasi PIN baru tidak cocok!")
+                continue
+
             try:
                 active_user.reset_pin_with_phone(active_user.phone_number, pin_baru)
                 print("PIN berhasil diubah!")
@@ -217,7 +273,7 @@ def portal_pengguna(
     while True:
         print_header("Portal Pengguna Dompet Digital")
         print("1. Log In")
-        print("2. Sign Up (Daftar Pengguna Baru)")
+        print("2. Sign Up")
         print("3. Lupa PIN")
         print("0. Kembali ke Menu Utama")
         print("-" * 48)
@@ -226,7 +282,7 @@ def portal_pengguna(
 
         if pilihan == "1":
             print_header("Log In Pengguna")
-            identitas = input("Masukkan User ID atau Nomor HP: ").strip()
+            identitas = input("Masukkan Nama, User ID, atau Nomor HP: ").strip()
             user = find_user_by_id_or_phone(users, identitas)
 
             if not user:
@@ -235,7 +291,7 @@ def portal_pengguna(
 
             pin = input("Masukkan PIN (6 digit): ").strip()
             if user.verify_pin(pin):
-                print(f"Selamat datang kembali, {user.name}!")
+                print(f"\nSelamat datang kembali, {user.name}!")
                 menu_pengguna_aktif(user, users, transfer_service, bill_service, feedback_service)
             else:
                 print("[Error]: PIN yang Anda masukkan salah!")
@@ -243,34 +299,47 @@ def portal_pengguna(
         elif pilihan == "2":
             # Fitur 1: Registrasi Pengguna & Inisialisasi Wallet Saldo 0
             print_header("Sign Up Pengguna Baru")
-            user_id = f"USR-{len(users) + 1:02d}"
-            nama = input("Nama Lengkap : ").strip()
-            no_hp = input("Nomor HP     : ").strip()
-            email = input("Email        : ").strip()
-            pin = input("Buat PIN (6 digit angka): ").strip()
-
-            if not nama or not no_hp:
-                print("[Error]: Nama dan Nomor HP wajib diisi!")
-                continue
-
-            # Cek duplikasi nomor HP
-            if find_user_by_id_or_phone(users, no_hp):
-                print("[Error]: Nomor HP sudah terdaftar pada akun lain.")
-                continue
-
             try:
+                nama_input = input("Nama Lengkap : ")
+                nama = validate_name(nama_input)
+
+                # Cek apakah nama sudah pernah digunakan
+                if any(u.name.lower() == nama.lower() for u in users.values()):
+                    print(f"[Error]: Nama '{nama}' sudah terdaftar. Silakan gunakan variasi nama lain.")
+                    continue
+
+                no_hp_input = input("Nomor HP     : ")
+                no_hp = validate_phone(no_hp_input)
+
+                # Cek duplikasi nomor HP
+                if find_user_by_id_or_phone(users, no_hp):
+                    print("[Error]: Nomor HP sudah terdaftar pada akun lain.")
+                    continue
+
+                email_input = input("Email        : ")
+                email = validate_email(email_input)
+
+                pin = input("Buat PIN (6 digit angka)     : ").strip()
+                pin_confirm = input("Konfirmasi PIN (masukkan lagi): ").strip()
+                if pin != pin_confirm:
+                    print("[Error]: Konfirmasi PIN tidak cocok!")
+                    continue
+
+                user_id = f"USR-{len(users) + 1:02d}"
                 baru = User(user_id=user_id, name=nama, phone_number=no_hp, email=email, pin=pin)
                 users[user_id] = baru
-                print(f"Pendaftaran Berhasil!")
-                print(f"User ID Anda : {user_id}")
-                print(f"Nama Akun    : {baru.name}")
-                print(f"Saldo Awal   : Rp {baru.wallet.get_balance():,.2f}")
+
+                print("\nPendaftaran Berhasil!")
+                print(f"Nama Akun  : {baru.name}")
+                print(f"Nomor HP   : {baru.phone_number}")
+                print(f"Saldo Awal : Rp {baru.wallet.get_balance():,.2f}")
+                print("Catatan: Anda sekarang dapat langsung login menggunakan Nama atau Nomor HP.")
             except ValueError as e:
                 print(f"[Pendaftaran Gagal]: {e}")
 
         elif pilihan == "3":
             print_header("Lupa PIN Pengguna")
-            identitas = input("Masukkan User ID atau Nomor HP terdaftar: ").strip()
+            identitas = input("Masukkan Nama, User ID, atau Nomor HP terdaftar: ").strip()
             user = find_user_by_id_or_phone(users, identitas)
 
             if not user:
@@ -279,10 +348,14 @@ def portal_pengguna(
 
             verifikasi_hp = input("Masukkan Nomor HP untuk verifikasi: ").strip()
             pin_baru = input("Masukkan PIN baru (6 digit angka): ").strip()
+            pin_confirm = input("Konfirmasi PIN baru: ").strip()
+            if pin_baru != pin_confirm:
+                print("[Error]: Konfirmasi PIN baru tidak cocok!")
+                continue
 
             try:
                 user.reset_pin_with_phone(verifikasi_hp, pin_baru)
-                print(f"PIN untuk {user.name} berhasil direset! Silakan Log In.")
+                print(f"\nPIN untuk {user.name} berhasil direset! Silakan Log In.")
             except ValueError as e:
                 print(f"[Gagal Reset PIN]: {e}")
 
@@ -302,7 +375,7 @@ def menu_admin_aktif(
 ) -> None:
     while True:
         print_header("Dashboard Administrator")
-        print(f"Admin Aktif: {active_admin.name} ({active_admin.admin_id})")
+        print(f"Admin Aktif: {active_admin.name}")
         print("-" * 48)
         print("1. Lihat Seluruh Data Pengguna")
         print("2. Lihat Komentar & Ulasan Pengguna")
@@ -366,7 +439,7 @@ def portal_admin(
 
         if pilihan == "1":
             print_header("Log In Administrator")
-            identitas = input("Masukkan Admin ID atau Nomor HP Admin: ").strip()
+            identitas = input("Masukkan Nama, Admin ID, atau Nomor HP: ").strip()
             admin = find_admin_by_id_or_phone(admins, identitas)
 
             if not admin:
@@ -375,14 +448,14 @@ def portal_admin(
 
             pin = input("Masukkan PIN Admin (6 digit): ").strip()
             if admin.verify_pin(pin):
-                print(f"Akses diterima. Selamat datang, {admin.name}!")
+                print(f"\nAkses diterima. Selamat datang, {admin.name}!")
                 menu_admin_aktif(admin, users, feedback_service)
             else:
                 print("[Error]: PIN Admin salah!")
 
         elif pilihan == "2":
             print_header("Lupa PIN Admin")
-            identitas = input("Masukkan Admin ID atau Nomor HP: ").strip()
+            identitas = input("Masukkan Nama, Admin ID, atau Nomor HP: ").strip()
             admin = find_admin_by_id_or_phone(admins, identitas)
 
             if not admin:
@@ -391,10 +464,14 @@ def portal_admin(
 
             verifikasi_hp = input("Masukkan Nomor HP terdaftar: ").strip()
             pin_baru = input("Masukkan PIN baru (6 digit angka): ").strip()
+            pin_confirm = input("Konfirmasi PIN baru: ").strip()
+            if pin_baru != pin_confirm:
+                print("[Error]: Konfirmasi PIN baru tidak cocok!")
+                continue
 
             try:
                 admin.reset_pin_with_phone(verifikasi_hp, pin_baru)
-                print(f"PIN untuk {admin.name} berhasil diperbarui!")
+                print(f"\nPIN untuk {admin.name} berhasil diperbarui!")
             except ValueError as e:
                 print(f"[Gagal Reset PIN]: {e}")
 
@@ -428,7 +505,7 @@ def main():
         print("0. Keluar dari Aplikasi")
         print("-" * 48)
 
-        pilihan = input("Pilih akses (0-2): ").strip()
+        pilihan = input("Pilih menu (0-2): ").strip()
 
         if pilihan == "1":
             portal_pengguna(users, transfer_service, bill_service, feedback_service)
